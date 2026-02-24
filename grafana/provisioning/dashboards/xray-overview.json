@@ -1,0 +1,304 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "title": "XRay TCP Status",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } }, "type": "value" }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "value",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+      },
+      "targets": [
+        {
+          "expr": "probe_success{job=\"blackbox-tcp-xray\"}",
+          "legendFormat": "XRay TCP",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Internet via Proxy Status",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } }, "type": "value" }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "value",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+      },
+      "targets": [
+        {
+          "expr": "probe_success{job=\"blackbox-http-via-proxy\"}",
+          "legendFormat": "HTTP via Proxy",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Active Alerts",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "value",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+      },
+      "targets": [
+        {
+          "expr": "count(ALERTS{alertstate=\"firing\"}) or vector(0)",
+          "legendFormat": "Firing Alerts",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "XRay Uptime",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 0.95 },
+              { "color": "green", "value": 0.99 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "value",
+        "reduceOptions": { "calcs": ["mean"], "fields": "", "values": false }
+      },
+      "targets": [
+        {
+          "expr": "avg_over_time(probe_success{job=\"blackbox-tcp-xray\"}[24h])",
+          "legendFormat": "24h Uptime",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Healthcheck Probe Duration",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "pointSize": 5,
+            "showPoints": "auto"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "probe_duration_seconds{job=\"blackbox-tcp-xray\"}",
+          "legendFormat": "TCP Probe",
+          "refId": "A"
+        },
+        {
+          "expr": "probe_duration_seconds{job=\"blackbox-http-via-proxy\"}",
+          "legendFormat": "HTTP via Proxy",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "title": "Probe Success History",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "max": 1,
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 20,
+            "drawStyle": "line",
+            "stacking": { "mode": "none" }
+          },
+          "mappings": [
+            { "options": { "0": { "text": "FAIL" }, "1": { "text": "OK" } }, "type": "value" }
+          ]
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "probe_success{job=~\"blackbox.*\"}",
+          "legendFormat": "{{ job }}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "XRay Traffic (Inbound)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 15
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "rate(xray_traffic_uplink_bytes_total[5m])",
+          "legendFormat": "Uplink {{ user }}",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(xray_traffic_downlink_bytes_total[5m])",
+          "legendFormat": "Downlink {{ user }}",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "title": "XRay Total Traffic",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "blue", "value": null }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "textMode": "value_and_name",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+      },
+      "targets": [
+        {
+          "expr": "xray_traffic_uplink_bytes_total",
+          "legendFormat": "Uplink",
+          "refId": "A"
+        },
+        {
+          "expr": "xray_traffic_downlink_bytes_total",
+          "legendFormat": "Downlink",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "title": "XRay Logs",
+      "type": "logs",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 20 },
+      "datasource": { "type": "loki", "uid": "P8E80F9AEF21F6940" },
+      "options": {
+        "showTime": true,
+        "showLabels": true,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "sortOrder": "Descending",
+        "dedupStrategy": "none"
+      },
+      "targets": [
+        {
+          "expr": "{container_name=\"styx-xray\"} |~ \"warning|error|fatal\"",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["styx", "xray", "vpn"],
+  "templating": { "list": [] },
+  "time": { "from": "now-6h", "to": "now" },
+  "timepicker": {},
+  "timezone": "",
+  "title": "Styx / XRay Overview",
+  "uid": "styx-xray-overview",
+  "version": 1
+}

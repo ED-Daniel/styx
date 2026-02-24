@@ -1,0 +1,49 @@
+groups:
+  - name: styx_xray_alerts
+    rules:
+      - alert: XRayDown
+        expr: probe_success{job="blackbox-tcp-xray"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Styx XRay is down"
+          description: "Styx XRay TCP probe has been failing for more than 2 minutes."
+
+      - alert: NoInternetViaProxy
+        expr: probe_success{job="blackbox-http-via-proxy"} == 0
+        for: 3m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Styx: no internet access via XRay proxy"
+          description: "HTTP probe through Styx SOCKS proxy has been failing for more than 3 minutes. Traffic is not flowing through VPN."
+
+  - name: styx_system_alerts
+    rules:
+      - alert: HighCPU
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Styx: high CPU usage"
+          description: "CPU usage is above 85% for more than 5 minutes. Current value: {{ $value | printf \"%.1f\" }}%"
+
+      - alert: HighMemory
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Styx: high memory usage"
+          description: "Memory usage is above 85% for more than 5 minutes. Current value: {{ $value | printf \"%.1f\" }}%"
+
+      - alert: DiskSpaceLow
+        expr: (1 - (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"})) * 100 > 90
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Styx: disk space is running low"
+          description: "Disk usage is above 90%. Current value: {{ $value | printf \"%.1f\" }}%"

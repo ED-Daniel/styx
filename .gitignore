@@ -2,3 +2,5 @@
 .claude
 .DS_Store
 CLAUDE.md
+.env
+*.bak

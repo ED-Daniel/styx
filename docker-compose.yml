@@ -1,0 +1,165 @@
+services:
+  xray:
+    image: ghcr.io/xtls/xray-core:latest
+    container_name: styx-xray
+    restart: unless-stopped
+    ports:
+      - "${XRAY_PORT:-443}:443"
+    volumes:
+      - ./xray/config.json:/etc/xray/config.json:ro
+      - styx-xray-logs:/var/log/xray
+    environment:
+      - XRAY_UUID=${XRAY_UUID}
+      - XRAY_REALITY_PRIVATE_KEY=${XRAY_REALITY_PRIVATE_KEY}
+      - XRAY_REALITY_SHORT_ID=${XRAY_REALITY_SHORT_ID}
+      - XRAY_REALITY_DEST=${XRAY_REALITY_DEST}
+      - XRAY_REALITY_SNI=${XRAY_REALITY_SNI}
+    networks:
+      - styx
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:10085"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: styx-prometheus
+    restart: unless-stopped
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - styx-prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
+    networks:
+      - styx
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: styx-grafana
+    restart: unless-stopped
+    ports:
+      - "${GRAFANA_PORT:-3000}:3000"
+    volumes:
+      - styx-grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_ROOT_URL=http://localhost:3000
+      - GF_ANALYTICS_REPORTING_ENABLED=false
+    networks:
+      - styx
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  loki:
+    image: grafana/loki:latest
+    container_name: styx-loki
+    restart: unless-stopped
+    volumes:
+      - ./loki/loki-config.yml:/etc/loki/local-config.yaml:ro
+      - styx-loki-data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - styx
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3100/ready"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  promtail:
+    image: grafana/promtail:latest
+    container_name: styx-promtail
+    restart: unless-stopped
+    volumes:
+      - ./promtail/promtail-config.yml:/etc/promtail/config.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    command: -config.file=/etc/promtail/config.yml
+    networks:
+      - styx
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9080/ready"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: styx-alertmanager
+    restart: unless-stopped
+    volumes:
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - styx-alertmanager-data:/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+    networks:
+      - styx
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9093/-/healthy"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: styx-node-exporter
+    restart: unless-stopped
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--path.rootfs=/rootfs'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    networks:
+      - styx
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9100/metrics"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  blackbox-exporter:
+    image: prom/blackbox-exporter:latest
+    container_name: styx-blackbox-exporter
+    restart: unless-stopped
+    volumes:
+      - ./blackbox-exporter/config.yml:/etc/blackbox_exporter/config.yml:ro
+    command:
+      - '--config.file=/etc/blackbox_exporter/config.yml'
+    networks:
+      - styx
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9115/-/healthy"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  styx-prometheus-data:
+  styx-grafana-data:
+  styx-loki-data:
+  styx-alertmanager-data:
+  styx-xray-logs:
+
+networks:
+  styx:
+    driver: bridge
