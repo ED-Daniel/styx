@@ -43,8 +43,22 @@ generate_uuid() {
 }
 
 # Generate Reality x25519 keypair
+# Handles both old format ("Private key: X" / "Public key: X")
+# and new format ("PrivateKey: X") where public key must be derived via -i flag
 generate_reality_keys() {
-    docker run --rm ghcr.io/xtls/xray-core:latest x25519
+    local keys_output private_key public_key
+    keys_output=$(docker run --rm ghcr.io/xtls/xray-core:latest x25519)
+
+    private_key=$(echo "$keys_output" | grep -iE "^private.?key:" | awk '{print $NF}')
+    public_key=$(echo "$keys_output" | grep -iE "^public.?key:" | awk '{print $NF}')
+
+    if [[ -z "$public_key" ]] && [[ -n "$private_key" ]]; then
+        public_key=$(docker run --rm ghcr.io/xtls/xray-core:latest x25519 -i "$private_key" \
+            | grep -iE "^public.?key:" | awk '{print $NF}')
+    fi
+
+    echo "Private key: $private_key"
+    echo "Public key: $public_key"
 }
 
 main() {
