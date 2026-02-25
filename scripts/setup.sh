@@ -53,8 +53,12 @@ generate_reality_keys() {
     public_key=$(echo "$keys_output" | grep -iE "^public.?key:" | awk '{print $NF}')
 
     if [[ -z "$public_key" ]] && [[ -n "$private_key" ]]; then
-        public_key=$(docker run --rm ghcr.io/xtls/xray-core:latest x25519 -i "$private_key" \
-            | grep -iE "^public.?key:" | awk '{print $NF}')
+        local derived
+        derived=$(docker run --rm ghcr.io/xtls/xray-core:latest x25519 -i "$private_key")
+        public_key=$(echo "$derived" | grep -iE "^public.?key:" | awk '{print $NF}')
+        if [[ -z "$public_key" ]]; then
+            public_key=$(echo "$derived" | grep -iE "^password:" | awk '{print $NF}')
+        fi
     fi
 
     echo "Private key: $private_key"
