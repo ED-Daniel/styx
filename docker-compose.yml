@@ -138,6 +138,22 @@ services:
       timeout: 5s
       retries: 3
 
+  xray-exporter:
+    build: ./xray-exporter
+    container_name: styx-xray-exporter
+    restart: unless-stopped
+    environment:
+      - XRAY_METRICS_URL=http://xray:10085/debug/vars
+    networks:
+      - styx
+    depends_on:
+      - xray
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9550/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
   blackbox-exporter:
     image: prom/blackbox-exporter:latest
     container_name: styx-blackbox-exporter

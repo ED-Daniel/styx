@@ -51,6 +51,6 @@ scrape_configs:
         replacement: blackbox-exporter:9115
 
   - job_name: "xray-metrics"
-    metrics_path: /debug/vars
+    metrics_path: /metrics
     static_configs:
-      - targets: ["xray:10085"]
+      - targets: ["xray-exporter:9550"]

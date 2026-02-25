@@ -220,14 +220,24 @@
       },
       "targets": [
         {
-          "expr": "rate(xray_traffic_uplink_bytes_total[5m])",
-          "legendFormat": "Uplink {{ user }}",
+          "expr": "rate(xray_inbound_uplink_bytes_total{tag=\"vless-reality\"}[5m])",
+          "legendFormat": "Inbound Uplink",
           "refId": "A"
         },
         {
-          "expr": "rate(xray_traffic_downlink_bytes_total[5m])",
-          "legendFormat": "Downlink {{ user }}",
+          "expr": "rate(xray_inbound_downlink_bytes_total{tag=\"vless-reality\"}[5m])",
+          "legendFormat": "Inbound Downlink",
           "refId": "B"
+        },
+        {
+          "expr": "rate(xray_user_uplink_bytes_total[5m])",
+          "legendFormat": "Uplink {{ user }}",
+          "refId": "C"
+        },
+        {
+          "expr": "rate(xray_user_downlink_bytes_total[5m])",
+          "legendFormat": "Downlink {{ user }}",
+          "refId": "D"
         }
       ]
     },
@@ -257,12 +267,12 @@
       },
       "targets": [
         {
-          "expr": "xray_traffic_uplink_bytes_total",
+          "expr": "sum(xray_inbound_uplink_bytes_total{tag=\"vless-reality\"})",
           "legendFormat": "Uplink",
           "refId": "A"
         },
         {
-          "expr": "xray_traffic_downlink_bytes_total",
+          "expr": "sum(xray_inbound_downlink_bytes_total{tag=\"vless-reality\"})",
           "legendFormat": "Downlink",
           "refId": "B"
         }
@@ -285,7 +295,7 @@
       },
       "targets": [
         {
-          "expr": "{container_name=\"styx-xray\"} |~ \"warning|error|fatal\"",
+          "expr": "{container_name=\"styx-xray\"}",
           "legendFormat": "",
           "refId": "A"
         }
