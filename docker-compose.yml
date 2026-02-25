@@ -2,6 +2,7 @@ services:
   xray:
     image: ghcr.io/xtls/xray-core:latest
     container_name: styx-xray
+    command: ["run", "-config", "/etc/xray/config.json"]
     restart: unless-stopped
     ports:
       - "${XRAY_PORT:-443}:443"
