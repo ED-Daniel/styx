@@ -46,7 +46,7 @@
     {
       "title": "Internet via Proxy Status",
       "type": "stat",
-      "gridPos": { "h": 4, "w": 5, "x": 5, "y": 0 },
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 0 },
       "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
       "fieldConfig": {
         "defaults": {
@@ -81,7 +81,7 @@
     {
       "title": "Active Alerts",
       "type": "stat",
-      "gridPos": { "h": 4, "w": 5, "x": 10, "y": 0 },
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 0 },
       "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
       "fieldConfig": {
         "defaults": {
@@ -113,7 +113,7 @@
     {
       "title": "XRay Uptime",
       "type": "stat",
-      "gridPos": { "h": 4, "w": 5, "x": 15, "y": 0 },
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 0 },
       "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
       "fieldConfig": {
         "defaults": {
@@ -145,7 +145,42 @@
       ]
     },
     {
-      "title": "Bridge Status",
+      "title": "Internet via Bridge",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } }, "type": "value" }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "value",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+      },
+      "targets": [
+        {
+          "expr": "probe_success{job=\"blackbox-http-via-bridge\"}",
+          "legendFormat": "HTTP via Bridge",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Bridge TCP",
       "type": "stat",
       "gridPos": { "h": 4, "w": 4, "x": 20, "y": 0 },
       "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
@@ -211,6 +246,11 @@
           "expr": "probe_duration_seconds{job=\"blackbox-tcp-bridge\"}",
           "legendFormat": "Bridge TCP",
           "refId": "C"
+        },
+        {
+          "expr": "probe_duration_seconds{job=\"blackbox-http-via-bridge\"}",
+          "legendFormat": "HTTP via Bridge",
+          "refId": "D"
         }
       ]
     },

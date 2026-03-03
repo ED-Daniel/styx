@@ -19,6 +19,15 @@ groups:
           summary: "Styx: no internet access via XRay proxy"
           description: "HTTP probe through Styx SOCKS proxy has been failing for more than 3 minutes. Traffic is not flowing through VPN."
 
+      - alert: NoInternetViaBridge
+        expr: probe_success{job="blackbox-http-via-bridge"} == 0
+        for: 3m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Styx: no internet access via bridge"
+          description: "HTTP probe through bridge relay has been failing for more than 3 minutes. Full chain client->bridge->xray->internet is broken."
+
       - alert: BridgeDown
         expr: probe_success{job="blackbox-tcp-bridge"} == 0
         for: 2m

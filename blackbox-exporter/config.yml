@@ -14,3 +14,13 @@ modules:
       valid_status_codes: [200, 204]
       method: GET
       proxy_url: "socks5://xray:10808"
+
+  http_via_bridge:
+    prober: http
+    timeout: 15s
+    http:
+      preferred_ip_protocol: ip4
+      valid_http_versions: ["HTTP/1.1", "HTTP/2.0"]
+      valid_status_codes: [200, 204]
+      method: GET
+      proxy_url: "socks5://xray-bridge-client:10809"

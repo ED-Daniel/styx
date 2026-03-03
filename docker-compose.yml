@@ -154,6 +154,18 @@ services:
       timeout: 5s
       retries: 3
 
+  xray-bridge-client:
+    image: ghcr.io/xtls/xray-core:latest
+    container_name: styx-xray-bridge-client
+    command: ["run", "-config", "/etc/xray/bridge-client.json"]
+    restart: unless-stopped
+    volumes:
+      - ./xray/bridge-client.json:/etc/xray/bridge-client.json:ro
+    networks:
+      - styx
+    depends_on:
+      - xray
+
   blackbox-exporter:
     image: prom/blackbox-exporter:latest
     container_name: styx-blackbox-exporter

@@ -106,6 +106,9 @@ main() {
         exit 1
     fi
 
+    # Ask for bridge IP
+    read -rp "Enter bridge server IP (or press Enter to skip): " BRIDGE_IP
+
     # Ask for Telegram settings
     read -rp "Enter Telegram Bot Token (or press Enter to skip): " TG_BOT_TOKEN
     read -rp "Enter Telegram Chat ID (or press Enter to skip): " TG_CHAT_ID
@@ -130,6 +133,9 @@ GRAFANA_PORT=3000
 GRAFANA_ADMIN_USER=admin
 GRAFANA_ADMIN_PASSWORD=${GF_PASSWORD}
 
+# === Bridge ===
+BRIDGE_IP=${BRIDGE_IP}
+
 # === Telegram Alerts ===
 TELEGRAM_BOT_TOKEN=${TG_BOT_TOKEN}
 TELEGRAM_CHAT_ID=${TG_CHAT_ID}
@@ -151,6 +157,18 @@ EOF
         -e "s/\${XRAY_REALITY_SNI}/www.google.com/g" \
         "$PROJECT_DIR/xray/config.json"
     rm -f "$PROJECT_DIR/xray/config.json.bak"
+
+    if [[ -n "$BRIDGE_IP" ]]; then
+        log_info "Updating bridge client config..."
+        sed -i.bak \
+            -e "s/\${BRIDGE_IP}/${BRIDGE_IP}/g" \
+            -e "s/\${XRAY_UUID}/${XRAY_UUID}/g" \
+            -e "s/\${XRAY_REALITY_PUBLIC_KEY}/${PUBLIC_KEY}/g" \
+            -e "s/\${XRAY_REALITY_SHORT_ID}/${SHORT_ID}/g" \
+            -e "s/\${XRAY_REALITY_SNI}/www.google.com/g" \
+            "$PROJECT_DIR/xray/bridge-client.json"
+        rm -f "$PROJECT_DIR/xray/bridge-client.json.bak"
+    fi
 
     # Update alertmanager config with Telegram token
     if [[ -n "$TG_BOT_TOKEN" ]]; then
