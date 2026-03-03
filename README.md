@@ -14,6 +14,7 @@ Personal VPN service based on XRay (VLESS + Reality) with full monitoring, loggi
 | **Alertmanager** | Alert routing to Telegram | 9093 (internal) |
 | **Node Exporter** | System metrics | 9100 (internal) |
 | **Blackbox Exporter** | Healthcheck probes | 9115 (internal) |
+| **XRay Bridge Client** | VPN client via bridge for monitoring | 10809 (internal) |
 
 ## Quick Start
 
@@ -41,7 +42,7 @@ docker compose up -d
 The setup script will:
 - Check for Docker and Docker Compose
 - Generate XRay UUID and Reality x25519 keypair
-- Ask for server IP, Telegram bot token, and Grafana password
+- Ask for server IP, bridge IP, Telegram bot token, and Grafana password
 - Create `.env` file and update configs
 - Print the VLESS connection URI
 
@@ -56,7 +57,7 @@ This generates a new UUID and prints the VLESS URI. You need to manually add the
 ## Dashboards
 
 ### Styx / XRay Overview
-- **Status panels**: UP/DOWN status for XRay TCP probe and HTTP-via-proxy probe
+- **Status panels**: UP/DOWN status for XRay TCP, HTTP-via-proxy, Bridge TCP, and Internet-via-bridge probes
 - **Probe latency**: Graph of healthcheck probe duration over time
 - **Traffic**: Inbound/outbound traffic rates and totals per user
 - **Logs**: Live XRay logs from Loki (filtered by warning/error)
@@ -77,6 +78,8 @@ All alerts are sent to Telegram via Alertmanager.
 | HighCPU | CPU > 85% for 5 min | Warning |
 | HighMemory | RAM > 85% for 5 min | Warning |
 | DiskSpaceLow | Disk > 90% | Critical |
+| BridgeDown | Bridge TCP probe fails > 2 min | Critical |
+| NoInternetViaBridge | HTTP probe via bridge fails > 3 min | Critical |
 
 ### Telegram Bot Setup
 
@@ -84,6 +87,95 @@ All alerts are sent to Telegram via Alertmanager.
 2. Get the bot token
 3. Get your chat ID (send a message to the bot, then check `https://api.telegram.org/bot<TOKEN>/getUpdates`)
 4. Enter both values during `setup.sh` or set them in `.env`
+
+## Bridge (Relay) Setup
+
+A bridge server acts as an intermediate relay between the client and the VPN server. The client connects to the bridge, and the bridge transparently forwards traffic to the actual VPN server. This hides the VPN server's IP from the ISP — the provider only sees a connection to a domestic server.
+
+```
+Client --> Bridge (e.g. Russia) --> VPN Server (e.g. Germany) --> Internet
+```
+
+The bridge does not decrypt traffic — it simply forwards the TCP stream. Reality/TLS encryption is end-to-end between the client and the VPN server.
+
+### Prerequisites
+
+- A separate server (Ubuntu 22.04/24.04) with a public IP
+- `socat` installed on the bridge server
+- Port 443 available (not occupied by other services)
+
+### Setup
+
+```bash
+# Install socat
+sudo apt-get install -y socat
+
+# Start the relay (replace VPN_SERVER_IP with your VPN server's IP)
+sudo socat TCP-LISTEN:443,fork,reuseaddr TCP:VPN_SERVER_IP:443
+```
+
+### Running as a systemd service
+
+To keep the bridge running after reboot, create a systemd unit:
+
+```bash
+sudo tee /etc/systemd/system/styx-bridge.service > /dev/null <<EOF
+[Unit]
+Description=Styx VPN Bridge Relay
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/socat TCP-LISTEN:443,fork,reuseaddr TCP:VPN_SERVER_IP:443
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now styx-bridge.service
+```
+
+### Client connection
+
+Use the same VLESS URI as for direct connection, but replace the VPN server IP with the bridge IP:
+
+```
+vless://UUID@BRIDGE_IP:443?type=tcp&security=reality&fp=chrome&pbk=PUBLIC_KEY&sni=www.google.com&sid=SHORT_ID&flow=xtls-rprx-vision#STYX-BRIDGE
+```
+
+### Bridge monitoring
+
+If `BRIDGE_IP` is set in `.env`, the stack includes:
+- **xray-bridge-client** container — connects to the VPN through the bridge and exposes a local SOCKS proxy
+- **blackbox-exporter** probes — TCP check on the bridge port + HTTP request through the full chain (client -> bridge -> VPN -> internet)
+- **Grafana panels** — "Bridge TCP" and "Internet via Bridge" status on the XRay Overview dashboard
+- **Alerts** — `BridgeDown` (bridge port unreachable) and `NoInternetViaBridge` (full chain broken)
+
+### Alternative: nginx stream
+
+If nginx is already installed on the bridge, you can use it instead of socat:
+
+```bash
+sudo apt-get install -y libnginx-mod-stream
+```
+
+Add to `/etc/nginx/nginx.conf` (at the top level, outside the `http` block):
+
+```nginx
+stream {
+    server {
+        listen 443;
+        proxy_pass VPN_SERVER_IP:443;
+    }
+}
+```
+
+```bash
+sudo nginx -t && sudo systemctl restart nginx
+```
 
 ## Configuration
 
@@ -132,6 +224,7 @@ docker compose down -v
 ├── docker-compose.yml
 ├── .env / .env.example
 ├── xray/config.json
+├── xray/bridge-client.json
 ├── prometheus/
 │   ├── prometheus.yml
 │   └── alerts.yml
