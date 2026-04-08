@@ -1,0 +1,37 @@
+{
+  "domainStrategy": "IPIfNonMatch",
+  "rules": [
+    {
+      "type": "field",
+      "outboundTag": "block",
+      "domain": [
+        "geosite:category-ads-all",
+        "geosite:win-spy"
+      ]
+    },
+    {
+      "type": "field",
+      "outboundTag": "proxy",
+      "domain": [
+        "geosite:youtube",
+        "geosite:tiktok",
+        "geosite:instagram",
+        "geosite:telegram",
+        "geosite:facebook",
+        "geosite:twitter",
+        "geosite:discord",
+        "geosite:openai",
+        "geosite:ru-blocked"
+      ]
+    },
+    {
+      "type": "field",
+      "outboundTag": "proxy",
+      "ip": [
+        "geoip:ru-blocked-community"
+      ]
+    }
+  ],
+  "geoipUrl": "https://raw.githubusercontent.com/runetfreedom/russia-v2ray-rules-dat/release/geoip.dat",
+  "geositeUrl": "https://raw.githubusercontent.com/runetfreedom/russia-v2ray-rules-dat/release/geosite.dat"
+}

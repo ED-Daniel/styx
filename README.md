@@ -154,6 +154,79 @@ If `BRIDGE_IP` is set in `.env`, the stack includes:
 - **Grafana panels** — "Bridge TCP" and "Internet via Bridge" status on the XRay Overview dashboard
 - **Alerts** — `BridgeDown` (bridge port unreachable) and `NoInternetViaBridge` (full chain broken)
 
+## Client Subscriptions
+
+Subscription links allow VPN clients to auto-import server configs and routing rules. Two endpoints are supported:
+
+| Client | URL | Features |
+|--------|-----|----------|
+| **Happ** | `https://DOMAIN:8443/sub` | VLESS URIs + routing deeplink (`happ://routing/onadd/...`) |
+| **v2RayTun** | `https://DOMAIN:8443/v2sub` | VLESS URIs + `routing` HTTP header with base64 JSON |
+
+### Routing profiles
+
+Routing profiles define which traffic goes through VPN (proxy), which is blocked, and which goes direct. Files are in `subscriptions/`:
+
+| File | Description | Use case |
+|------|-------------|----------|
+| `routing-happ.json` | Happ format, `geosite:ru-blocked` only | Happ with runetfreedom geo database |
+| `routing-happ-lite.json` | Happ format, individual services only | Happ on low-memory devices |
+| `routing-v2raytun.json` | Standard v2ray format with rules array | v2RayTun (sent via HTTP header) |
+
+**Lite profile** proxies: YouTube, TikTok, Instagram, Telegram, Facebook, Twitter, Discord, OpenAI.
+**Full profile** uses [runetfreedom](https://github.com/runetfreedom/russia-v2ray-rules-dat) `geosite:ru-blocked` — all RKN-blocked domains.
+
+### Setup subscriptions
+
+**1. Generate subscription files:**
+
+```bash
+./scripts/generate-subscriptions.sh
+```
+
+This reads `.env` (UUID, keys, server/bridge IPs) and routing JSONs from `subscriptions/`, then generates base64-encoded files in `/var/www/styx-sub/`.
+
+To use the lite Happ profile instead of the full one:
+```bash
+./scripts/generate-subscriptions.sh subscriptions/routing-happ-lite.json
+```
+
+**2. Configure nginx:**
+
+Add an HTTPS server block (port 8443) with SSL certificate. See `subscriptions/nginx-subscriptions.conf` for the location blocks. The v2RayTun `/v2sub` location needs the `routing` header — the script prints the base64 string to paste into the nginx config.
+
+Example nginx setup:
+
+```bash
+# Get SSL certificate (stop XRay temporarily if it holds port 443)
+sudo certbot certonly --standalone -d your-domain.com
+
+# Add the subscription locations to your nginx server block on port 8443
+# See subscriptions/nginx-subscriptions.conf for the template
+```
+
+**3. Test:**
+
+```bash
+# Happ
+curl -s https://your-domain.com:8443/sub | base64 -d
+
+# v2RayTun (check headers)
+curl -sI https://your-domain.com:8443/v2sub
+```
+
+### Updating subscriptions
+
+After adding a new client or changing routing rules, re-run:
+
+```bash
+sudo ./scripts/generate-subscriptions.sh
+```
+
+Clients will pick up changes on next subscription refresh (v2RayTun: every 12 hours by default).
+
+---
+
 ### Alternative: nginx stream
 
 If nginx is already installed on the bridge, you can use it instead of socat:
@@ -238,7 +311,13 @@ docker compose down -v
 │       ├── dashboards.yml
 │       ├── xray-overview.json
 │       └── system.json
+├── subscriptions/
+│   ├── routing-happ.json            # Happ routing (geosite:ru-blocked)
+│   ├── routing-happ-lite.json       # Happ routing (individual services, low memory)
+│   ├── routing-v2raytun.json        # v2RayTun routing (standard v2ray format)
+│   └── nginx-subscriptions.conf     # nginx location blocks template
 └── scripts/
     ├── setup.sh
-    └── add-client.sh
+    ├── add-client.sh
+    └── generate-subscriptions.sh
 ```

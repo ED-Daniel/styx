@@ -1,0 +1,30 @@
+{
+  "Name": "Styx",
+  "GlobalProxy": "false",
+  "RemoteDNSType": "DoH",
+  "RemoteDNSDomain": "https://8.8.8.8/dns-query",
+  "RemoteDNSIP": "8.8.8.8",
+  "DomesticDNSType": "DoH",
+  "DomesticDNSDomain": "https://77.88.8.8/dns-query",
+  "DomesticDNSIP": "77.88.8.8",
+  "RouteOrder": "block-proxy-direct",
+  "DirectSites": [],
+  "DirectIp": [],
+  "ProxySites": [
+    "geosite:youtube",
+    "geosite:tiktok",
+    "geosite:instagram",
+    "geosite:telegram",
+    "geosite:facebook",
+    "geosite:twitter",
+    "geosite:discord",
+    "geosite:openai"
+  ],
+  "ProxyIp": [],
+  "BlockSites": [
+    "geosite:category-ads-all"
+  ],
+  "BlockIp": [],
+  "DomainStrategy": "AsIs",
+  "FakeDNS": "false"
+}
