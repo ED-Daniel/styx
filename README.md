@@ -1,12 +1,30 @@
 # Styx
 
-Personal VPN service based on XRay (VLESS + Reality) with full monitoring, logging, and alerting.
+Personal VPN service with dual protocols and full monitoring, logging, and alerting.
+
+- **VLESS + Reality** (XRay) -- TCP:443, maximum stealth when UDP is blocked
+- **Hysteria2** (standalone) -- UDP:443, maximum speed with Salamander obfuscation and port hopping
+
+Both protocols run on the same server and port 443 without conflict (TCP vs UDP).
 
 ## Architecture
 
+```
+                      ┌──────────────────────────────────┐
+                      │          VPS (single VM)          │
+                      │                                   │
+Client ──TCP:443────► │  XRay (VLESS+Reality) [Docker]    │
+                      │                                   │
+Client ──UDP:443────► │  Hysteria2 (Salamander) [systemd] │
+                      │                                   │
+                      │  Monitoring stack [Docker]        │
+                      └──────────────────────────────────┘
+```
+
 | Service | Purpose | Port |
 |---------|---------|------|
-| **XRay** | VPN server (VLESS + Reality) | 443 (external) |
+| **XRay** | VPN server (VLESS + Reality) | TCP 443 (external) |
+| **Hysteria2** | VPN server (QUIC + Salamander) | UDP 443 (external) |
 | **Grafana** | Dashboards and visualization | 3000 (external) |
 | **Prometheus** | Metrics collection | 9090 (internal) |
 | **Loki** | Log aggregation | 3100 (internal) |
@@ -32,10 +50,10 @@ git clone <repo-url> styx
 cd styx
 
 # Run setup script
-chmod +x scripts/setup.sh scripts/add-client.sh
+chmod +x scripts/setup.sh scripts/add-client.sh scripts/setup-hysteria2.sh
 ./scripts/setup.sh
 
-# Start the stack
+# Start the monitoring + XRay stack
 docker compose up -d
 ```
 
@@ -46,7 +64,25 @@ The setup script will:
 - Create `.env` file and update configs
 - Print the VLESS connection URI
 
-### Add New Client
+### Setup Hysteria2
+
+Hysteria2 runs as a standalone systemd service (not in Docker), alongside the XRay stack.
+
+```bash
+# Run on the server as root
+sudo ./scripts/setup-hysteria2.sh
+```
+
+The script will:
+- Install Hysteria2 binary
+- Generate self-signed TLS certificate with SHA256 pinning
+- Generate Salamander obfuscation password
+- Create config at `/etc/hysteria/config.yaml`
+- Set up port hopping via nftables (UDP 20000-50000 -> 443)
+- Start and enable the systemd service
+- Print client connection URIs
+
+### Add New Client (VLESS)
 
 ```bash
 ./scripts/add-client.sh "Client Name"
@@ -153,6 +189,73 @@ If `BRIDGE_IP` is set in `.env`, the stack includes:
 - **blackbox-exporter** probes — TCP check on the bridge port + HTTP request through the full chain (client -> bridge -> VPN -> internet)
 - **Grafana panels** — "Bridge TCP" and "Internet via Bridge" status on the XRay Overview dashboard
 - **Alerts** — `BridgeDown` (bridge port unreachable) and `NoInternetViaBridge` (full chain broken)
+
+## Hysteria2
+
+Hysteria2 provides a high-speed VPN tunnel over QUIC (UDP), running as a standalone systemd service alongside the Docker-based XRay stack.
+
+### Features
+
+- **Salamander obfuscation** -- disguises QUIC traffic to bypass DPI that blocks standard QUIC/HTTP3
+- **Port hopping** -- client jumps across UDP port range (20000-50000), server redirects to 443 via nftables
+- **Self-signed TLS with SHA256 pinning** -- no dependency on ACME/Let's Encrypt, client verifies server by certificate pin
+
+### Config
+
+Server config: `/etc/hysteria/config.yaml`
+
+```yaml
+listen: :443
+
+tls:
+  cert: /etc/hysteria/ca.crt
+  key: /etc/hysteria/ca.key
+
+auth:
+  type: password
+  password: YOUR_PASSWORD
+
+obfs:
+  type: salamander
+  salamander:
+    password: YOUR_OBFS_PASSWORD
+
+quic:
+  initStreamReceiveWindow: 26843545
+  maxStreamReceiveWindow: 26843545
+  initConnReceiveWindow: 67108864
+  maxConnReceiveWindow: 67108864
+```
+
+### Client URI format
+
+```
+hy2://PASSWORD@DOMAIN:20000-50000?obfs=salamander&obfs-password=OBFS_PASSWORD&sni=DOMAIN&insecure=1&pinSHA256=SHA256_PIN#Hysteria2
+```
+
+### Management
+
+```bash
+systemctl status hysteria-server    # Status
+journalctl -u hysteria-server -f    # Logs
+systemctl restart hysteria-server   # Restart
+nano /etc/hysteria/config.yaml      # Edit config
+```
+
+### Recommended clients
+
+| Platform | Client | Notes |
+|----------|--------|-------|
+| Android | Hiddify | Import via hy2:// link |
+| iOS | Hiddify / Shadowrocket | Shadowrocket supports hy2:// from v2.2.35 |
+| Windows | Hiddify / NekoBox / v2rayN | |
+| macOS | Hiddify / NekoBox | |
+| Linux | Native `hysteria` CLI | Only client with port hopping support |
+
+### When to use which protocol
+
+- **Hysteria2** -- when you need speed and UDP is not blocked by the ISP
+- **VLESS+Reality** -- when you need maximum stealth or UDP is blocked
 
 ## Client Subscriptions
 
@@ -274,17 +377,28 @@ XRAY_REALITY_SNI=www.microsoft.com
 
 ```bash
 # View logs
-docker compose logs -f xray        # Styx XRay logs
-docker compose logs -f prometheus   # Styx Prometheus logs
+docker compose logs -f xray        # XRay logs
+docker compose logs -f prometheus   # Prometheus logs
+journalctl -u hysteria-server -f   # Hysteria2 logs
 
-# Restart a service
+# Restart services
 docker compose restart xray
+systemctl restart hysteria-server
 
-# Update all images
+# Update XRay + monitoring stack
 docker compose pull && docker compose up -d
 
-# Stop Styx
+# Update Hysteria2
+bash <(curl -fsSL https://get.hy2.sh/)
+systemctl restart hysteria-server
+
+# Check both VPN services
+ss -tlnp | grep 443    # XRay (TCP)
+ss -ulnp | grep 443    # Hysteria2 (UDP)
+
+# Stop everything
 docker compose down
+systemctl stop hysteria-server
 
 # Stop and remove volumes (data loss!)
 docker compose down -v
@@ -317,7 +431,22 @@ docker compose down -v
 │   ├── routing-v2raytun.json        # v2RayTun routing (standard v2ray format)
 │   └── nginx-subscriptions.conf     # nginx location blocks template
 └── scripts/
-    ├── setup.sh
-    ├── add-client.sh
-    └── generate-subscriptions.sh
+    ├── setup.sh                     # Initial XRay + monitoring setup
+    ├── setup-hysteria2.sh           # Hysteria2 setup (Salamander + port hopping)
+    ├── add-client.sh                # Add VLESS client
+    └── generate-subscriptions.sh    # Generate subscription files
+```
+
+### Hysteria2 files on server (created by setup-hysteria2.sh)
+
+```
+/etc/hysteria/
+├── config.yaml          # Hysteria2 server config
+├── ca.crt               # Self-signed TLS certificate
+└── ca.key               # TLS private key
+
+/etc/systemd/system/
+└── hysteria-server.service
+
+/etc/nftables.conf       # Port hopping rules (UDP 20000-50000 -> 443)
 ```
