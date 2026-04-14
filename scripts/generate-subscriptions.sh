@@ -31,36 +31,71 @@ SNI="${XRAY_REALITY_SNI:-www.google.com}"
 PORT="${XRAY_PORT:-443}"
 BRIDGE_IP="${BRIDGE_IP:-}"
 
+# Hysteria2 settings (optional)
+HY2_DOMAIN="${HY2_DOMAIN:-}"
+HY2_PASSWORD="${HY2_PASSWORD:-}"
+HY2_OBFS_PASSWORD="${HY2_OBFS_PASSWORD:-}"
+HY2_PORT="${HY2_PORT:-443}"
+HY2_PORT_HOPPING="${HY2_PORT_HOPPING:-}"
+HY2_SHA256_PIN="${HY2_SHA256_PIN:-}"
+
 ROUTING_HAPP="${1:-$SUB_DIR/routing-happ.json}"
 ROUTING_V2RAYTUN="${2:-$SUB_DIR/routing-v2raytun.json}"
 
 mkdir -p "$OUT_DIR"
 
-VLESS_LINES=""
+URI_LINES=""
 
 if [[ -n "$BRIDGE_IP" ]]; then
-    VLESS_LINES+="vless://${XRAY_UUID}@${BRIDGE_IP}:${PORT}?type=tcp&security=reality&fp=chrome&pbk=${PUBLIC_KEY}&sni=${SNI}&sid=${SHORT_ID}&flow=xtls-rprx-vision#CHARON"
-    VLESS_LINES+=$'\n'
+    URI_LINES+="vless://${XRAY_UUID}@${BRIDGE_IP}:${PORT}?type=tcp&security=reality&fp=chrome&pbk=${PUBLIC_KEY}&sni=${SNI}&sid=${SHORT_ID}&flow=xtls-rprx-vision#CHARON"
+    URI_LINES+=$'\n'
 fi
 
-VLESS_LINES+="vless://${XRAY_UUID}@${SERVER_IP}:${PORT}?type=tcp&security=reality&fp=chrome&pbk=${PUBLIC_KEY}&sni=${SNI}&sid=${SHORT_ID}&flow=xtls-rprx-vision#STYX"
+URI_LINES+="vless://${XRAY_UUID}@${SERVER_IP}:${PORT}?type=tcp&security=reality&fp=chrome&pbk=${PUBLIC_KEY}&sni=${SNI}&sid=${SHORT_ID}&flow=xtls-rprx-vision#STYX"
+
+# Add Hysteria2 URI if configured
+if [[ -n "$HY2_DOMAIN" && -n "$HY2_PASSWORD" ]]; then
+    HY2_URI="hy2://${HY2_PASSWORD}@${HY2_DOMAIN}"
+
+    if [[ -n "$HY2_PORT_HOPPING" ]]; then
+        HY2_URI+=":${HY2_PORT_HOPPING}"
+    else
+        HY2_URI+=":${HY2_PORT}"
+    fi
+
+    HY2_PARAMS="sni=${HY2_DOMAIN}"
+
+    if [[ -n "$HY2_OBFS_PASSWORD" ]]; then
+        HY2_PARAMS+="&obfs=salamander&obfs-password=${HY2_OBFS_PASSWORD}"
+    fi
+
+    if [[ -n "$HY2_SHA256_PIN" ]]; then
+        HY2_PARAMS+="&insecure=1&pinSHA256=${HY2_SHA256_PIN}"
+    fi
+
+    HY2_URI+="?${HY2_PARAMS}#STYX-HY2"
+
+    URI_LINES+=$'\n'
+    URI_LINES+="$HY2_URI"
+    log_info "Hysteria2 URI added to subscriptions"
+fi
 
 # --- Happ subscription (/sub) ---
 if [[ -f "$ROUTING_HAPP" ]]; then
     ROUTING_B64=$(base64 -w 0 < "$ROUTING_HAPP" 2>/dev/null || base64 -i "$ROUTING_HAPP")
     DEEPLINK="happ://routing/onadd/${ROUTING_B64}"
-    printf "%s\n%s" "$DEEPLINK" "$VLESS_LINES" | base64 -w 0 > "$OUT_DIR/sub" 2>/dev/null || \
-    printf "%s\n%s" "$DEEPLINK" "$VLESS_LINES" | base64 > "$OUT_DIR/sub"
+    printf "%s\n%s" "$DEEPLINK" "$URI_LINES" | base64 -w 0 > "$OUT_DIR/sub" 2>/dev/null || \
+    printf "%s\n%s" "$DEEPLINK" "$URI_LINES" | base64 > "$OUT_DIR/sub"
     log_info "Happ subscription written to $OUT_DIR/sub"
 else
-    printf "%s" "$VLESS_LINES" | base64 -w 0 > "$OUT_DIR/sub" 2>/dev/null || \
-    printf "%s" "$VLESS_LINES" | base64 > "$OUT_DIR/sub"
+    printf "%s" "$URI_LINES" | base64 -w 0 > "$OUT_DIR/sub" 2>/dev/null || \
+    printf "%s" "$URI_LINES" | base64 > "$OUT_DIR/sub"
     log_info "Happ subscription written to $OUT_DIR/sub (no routing — $ROUTING_HAPP not found)"
 fi
 
 # --- v2RayTun subscription (/v2sub) ---
-printf "%s" "$VLESS_LINES" | base64 -w 0 > "$OUT_DIR/v2sub" 2>/dev/null || \
-printf "%s" "$VLESS_LINES" | base64 > "$OUT_DIR/v2sub"
+printf "%s" "$URI_LINES" | base64 -w 0 > "$OUT_DIR/v2sub" 2>/dev/null || \
+printf "%s" "$URI_LINES" | base64 > "$OUT_DIR/v2sub"
 log_info "v2RayTun subscription written to $OUT_DIR/v2sub"
 
 if [[ -f "$ROUTING_V2RAYTUN" ]]; then
